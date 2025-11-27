@@ -151,6 +151,22 @@ deploymentStrategy:
   type: Recreate
 
 # -----------------------------------------------------
+# Istio (Required fields because chart references them)
+# -----------------------------------------------------
+
+istio:
+  enabled: false
+  virtualService:
+    enabled: false
+    hosts: []
+  gateway:
+    enabled: false
+    namespace: "istio-system"
+    names:
+      - "istio-system/istio-gateway"
+    selector: "ingress"
+
+# -----------------------------------------------------
 # Health checks (fixed)
 # -----------------------------------------------------
 
