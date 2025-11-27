@@ -1,0 +1,20 @@
+image:
+  repository: ""      # will be set by pipeline
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+
+resources: {}
+
+secret:
+  secrets:
+    DB_URL: ""
+    ACCESS_TOKEN_SECRET: ""
+    REFRESH_TOKEN_SECRET: ""
+
+configmap:
+  configs:
+    SAMPLE_MESSAGE: "Hello from ConfigMap (dev)"
