@@ -3,7 +3,6 @@ name: Proj Hugin AKS CI/CD
 permissions:
   id-token: write
   contents: read
-  actions: read
 
 on:
   push:
@@ -25,48 +24,30 @@ jobs:
       HELM_RELEASE_NAME: proj-hugin-api
       HELM_NAMESPACE: dev
       HELM_CHART_PATH: ./helmchart
-      HELM_VALUES_FILE: ./helmchart/config/dev-override-values.yaml
+      HELM_VALUES_FILE: ./helmchart/config/override-values.yaml
 
     steps:
-      # ------------------------------------
-      # 1. Checkout Code
-      # ------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ------------------------------------
-      # 2. Login to Azure using OIDC
-      # ------------------------------------
-      - name: Authenticate to Azure
+      - name: Authenticate to Azure (OIDC)
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ------------------------------------
-      # 3. ACR Login using Azure identity
-      # ------------------------------------
-      - name: Login to Azure Container Registry (OIDC)
+      - name: Login to ACR using Azure identity
         run: |
           az acr login --name $ACR_NAME
 
-      # ------------------------------------
-      # 4. Buildx Setup
-      # ------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ------------------------------------
-      # 5. Build Image
-      # ------------------------------------
       - name: Build Docker Image
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
           docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG} .
 
-      # ------------------------------------
-      # 6. Trivy Security Scan
-      # ------------------------------------
       - name: Install Trivy
         run: |
           sudo apt-get update -y
@@ -76,24 +57,18 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y trivy
 
-      - name: Trivy Scan Image
+      - name: Scan Image with Trivy
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
-          trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$IMAGE_TAG
+          trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
 
-      # ------------------------------------
-      # 7. Push Image to ACR
-      # ------------------------------------
       - name: Push Image to ACR
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
           docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
 
-      # ------------------------------------
-      # 8. Pull secrets from Azure Key Vault
-      # ------------------------------------
       - name: Load Secrets from Azure Key Vault
         uses: azure/cli@v2
         with:
@@ -103,28 +78,19 @@ jobs:
               echo "${secret//-/_}=$VALUE" >> $GITHUB_ENV
             done
 
-      # ------------------------------------
-      # 9. Install kubectl & Helm
-      # ------------------------------------
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
 
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      # ------------------------------------
-      # 🔥 10. Connect to AKS
-      # ------------------------------------
       - name: Set AKS Context
         uses: azure/aks-set-context@v4
         with:
           resource-group: ${{ env.AKS_RG }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      # ------------------------------------
-      # 11. Deploy to AKS using Helm
-      # ------------------------------------
-      - name: Deploy Helm Chart
+      - name: Deploy Helm Chart to AKS
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
@@ -132,9 +98,9 @@ jobs:
             -n $HELM_NAMESPACE \
             -f $HELM_VALUES_FILE \
             --create-namespace \
-            --atomic --wait --timeout 5m \
+            --rollback-on-failure --wait --timeout 5m \
             --set image.repository=$ACR_LOGIN_SERVER/$ACR_REPOSITORY \
             --set image.tag=$IMAGE_TAG \
-            --set secret.secrets.DB_URL=$DB_URL \
-            --set secret.secrets.ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET \
-            --set secret.secrets.REFRESH_TOKEN_SECRET=$REFRESH_TOKEN_SECRET
+            --set secret.DB_URL=$DB_URL \
+            --set secret.ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET \
+            --set secret.REFRESH_TOKEN_SECRET=$REFRESH_TOKEN_SECRET
