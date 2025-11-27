@@ -14,4 +14,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 App running on port ${PORT}`);
   console.log(`🔐 REFRESH_TOKEN_SECRET loaded from runtime:`, process.env.REFRESH_TOKEN_SECRET);
+  console.log(`🔐 ACCESS_TOKEN_SECRET loaded from runtime:`, process.env.ACCESS_TOKEN_SECRET);
+  console.log(`🔐 DB_URL loaded from runtime:`, process.env.DB_URL);
 });
