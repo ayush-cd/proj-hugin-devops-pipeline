@@ -3,6 +3,7 @@ name: Proj Hugin AKS CI/CD
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 on:
   push:
@@ -15,108 +16,115 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # 🔧 CHANGE THESE TO YOUR REAL VALUES
-      ACR_LOGIN_SERVER: projhugin.azurecr.io        # e.g. myregistry.azurecr.io
-      ACR_REPOSITORY: proj-hugin-backend            # repo inside ACR
-      AKS_RG: ayush-rg                               # your resource group
-      AKS_CLUSTER_NAME: proj-hugin-dev-aks          # your AKS cluster name
-      KEY_VAULT_NAME: projhugin-kv                  # your Key Vault
+      ACR_LOGIN_SERVER: hugintestacr.azurecr.io
+      ACR_NAME: hugintestacr
+      ACR_REPOSITORY: proj-hugin-backend
+      AKS_RG: hugin-test-rg
+      AKS_CLUSTER_NAME: hugin-test-aks
+      KEY_VAULT_NAME: hugin-test-key-vault
       HELM_RELEASE_NAME: proj-hugin-api
       HELM_NAMESPACE: dev
       HELM_CHART_PATH: ./helmchart
       HELM_VALUES_FILE: ./helmchart/config/dev-override-values.yaml
 
     steps:
-      # 1. Checkout
+      # ------------------------------------
+      # 1. Checkout Code
+      # ------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Login to Azure (using AZURE_CREDENTIALS secret)
-      - name: Login to Azure
+      # ------------------------------------
+      # 2. Login to Azure using OIDC
+      # ------------------------------------
+      - name: Authenticate to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Login to ACR
-      - name: Login to ACR
-        uses: azure/docker-login@v2
-        with:
-          login-server: ${{ env.ACR_LOGIN_SERVER }}
+      # ------------------------------------
+      # 3. ACR Login using Azure identity
+      # ------------------------------------
+      - name: Login to Azure Container Registry (OIDC)
+        run: |
+          az acr login --name $ACR_NAME
 
-      # 4. Set up Docker Buildx
+      # ------------------------------------
+      # 4. Buildx Setup
+      # ------------------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 5. Build image
-      - name: Build Docker image
+      # ------------------------------------
+      # 5. Build Image
+      # ------------------------------------
+      - name: Build Docker Image
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
-          docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG} .
 
-      # 6. Install Trivy & scan
+      # ------------------------------------
+      # 6. Trivy Security Scan
+      # ------------------------------------
       - name: Install Trivy
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y wget apt-transport-https gnupg lsb-release
           wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
           echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y trivy
 
-      - name: Trivy scan
+      - name: Trivy Scan Image
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
           trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$IMAGE_TAG
 
-      # 7. Push image to ACR
-      - name: Push Docker image
+      # ------------------------------------
+      # 7. Push Image to ACR
+      # ------------------------------------
+      - name: Push Image to ACR
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
-          docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$IMAGE_TAG
+          docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
 
-      # 8. Load secrets from Key Vault into env
-      - name: Load Key Vault secrets
+      # ------------------------------------
+      # 8. Pull secrets from Azure Key Vault
+      # ------------------------------------
+      - name: Load Secrets from Azure Key Vault
         uses: azure/cli@v2
         with:
           inlineScript: |
-            KV=${{ env.KEY_VAULT_NAME }}
+            for secret in DB-URL ACCESS-TOKEN-SECRET REFRESH-TOKEN-SECRET; do
+              VALUE=$(az keyvault secret show --vault-name ${{ env.KEY_VAULT_NAME }} --name $secret --query value -o tsv)
+              echo "${secret//-/_}=$VALUE" >> $GITHUB_ENV
+            done
 
-            get_secret () {
-              local NAME=$1
-              local VAR=$2
-              local VAL
-              VAL=$(az keyvault secret show --vault-name "$KV" --name "$NAME" --query value -o tsv)
-              echo "$VAR=$VAL" >> $GITHUB_ENV
-            }
-
-            # 🔧 secret names in Key Vault
-            get_secret "DB-URL"               "DB_URL"
-            get_secret "ACCESS-TOKEN-SECRET"  "ACCESS_TOKEN_SECRET"
-            get_secret "REFRESH-TOKEN-SECRET" "REFRESH_TOKEN_SECRET"
-
+      # ------------------------------------
       # 9. Install kubectl & Helm
+      # ------------------------------------
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
-        with:
-          version: "latest"
 
       - name: Install Helm
         uses: azure/setup-helm@v4
-        with:
-          version: "latest"
 
-      # 10. Get AKS context
-      - name: Set AKS context
+      # ------------------------------------
+      # 🔥 10. Connect to AKS
+      # ------------------------------------
+      - name: Set AKS Context
         uses: azure/aks-set-context@v4
         with:
           resource-group: ${{ env.AKS_RG }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-      # 11. Deploy to AKS with Helm
-      - name: Deploy Helm chart
+      # ------------------------------------
+      # 11. Deploy to AKS using Helm
+      # ------------------------------------
+      - name: Deploy Helm Chart
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
@@ -124,7 +132,7 @@ jobs:
             -n $HELM_NAMESPACE \
             -f $HELM_VALUES_FILE \
             --create-namespace \
-            --atomic --wait --timeout 5m0s \
+            --atomic --wait --timeout 5m \
             --set image.repository=$ACR_LOGIN_SERVER/$ACR_REPOSITORY \
             --set image.tag=$IMAGE_TAG \
             --set secret.secrets.DB_URL=$DB_URL \
