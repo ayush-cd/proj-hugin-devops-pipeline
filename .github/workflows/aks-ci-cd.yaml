@@ -101,6 +101,6 @@ jobs:
             --rollback-on-failure --wait --timeout 5m \
             --set image.repository=$ACR_LOGIN_SERVER/$ACR_REPOSITORY \
             --set image.tag=$IMAGE_TAG \
-            --set secret.DB_URL=$DB_URL \
-            --set secret.ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET \
-            --set secret.REFRESH_TOKEN_SECRET=$REFRESH_TOKEN_SECRET
+            --set secret.secrets.DB_URL="$DB_URL" \
+            --set secret.secrets.ACCESS_TOKEN_SECRET="$ACCESS_TOKEN_SECRET" \
+            --set secret.secrets.REFRESH_TOKEN_SECRET="$REFRESH_TOKEN_SECRET"
