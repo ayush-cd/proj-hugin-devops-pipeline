@@ -10,6 +10,8 @@ RUN npm install --omit=dev
 # Copy rest of app
 COPY app/ .
 
+ENV PORT=80
+
 EXPOSE 80
 
 CMD ["npm", "start"]
