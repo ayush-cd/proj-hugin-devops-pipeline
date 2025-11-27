@@ -5,11 +5,12 @@
 replicaCount: 1
 
 image:
-  # These values will be injected dynamically by the pipeline:
-  repository: ""         # Example: hugintestacr.azurecr.io/proj-hugin-backend
+  repository: ""   # Populated by pipeline
   pullPolicy: IfNotPresent
-  tag: ""                # IMAGE_TAG from pipeline
+  tag: ""          # Populated by pipeline
   digest: ""
+
+imagePullSecrets: []   # REQUIRED by schema
 
 commands:
   - /bin/sh
@@ -17,7 +18,7 @@ commands:
   - echo "Hello from AKS CI/CD Pipeline 🚀"; nginx -g 'daemon off;'
 
 # -----------------------------------------------------
-# Secrets from Azure Key Vault (CI/CD Injects Values)
+# Secrets injected from Azure Key Vault (Pipeline)
 # -----------------------------------------------------
 
 secret:
@@ -28,7 +29,7 @@ secret:
     REFRESH_TOKEN_SECRET: ""
 
 # -----------------------------------------------------
-# ConfigMap (Optional Testing Config)
+# ConfigMap
 # -----------------------------------------------------
 
 configmap:
@@ -38,35 +39,58 @@ configmap:
     MESSAGE: "Hello from ConfigMap 👋"
 
 # -----------------------------------------------------
+# Required Schema Keys
+# -----------------------------------------------------
+
+nameOverride: ""
+fullnameOverride: ""
+
+pdbMinAvailable: ""   # REQUIRED field
+
+poddisruptionbudget:
+  enabled: false
+  minAvailable: 1
+
+serviceAccount:
+  enabled: false
+  annotations: {}    # REQUIRED field
+  name: ""           # REQUIRED field
+
+# -----------------------------------------------------
 # Networking
 # -----------------------------------------------------
 
 service:
   enabled: true
-  type: LoadBalancer       # For Azure External IP Access
+  type: LoadBalancer
   port: 80
   containerPort: 80
   targetPort: 80
 
 ingress:
-  enabled: false           # Disabled because AWS ALB config isn't compatible with AKS
+  enabled: false
+  className: ""       # REQUIRED by schema
+  annotations: {}     # REQUIRED by schema
+  hosts:
+    - host: "placeholder.local"   # REQUIRED field even if disabled
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []             # REQUIRED field
 
 # -----------------------------------------------------
 # Autoscaling
 # -----------------------------------------------------
 
 autoscaling:
-  enabled: false           # Can enable later if metrics server installed
+  enabled: false
   minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
 
 # -----------------------------------------------------
-# Pod Security / Scheduling
+# Pod / Security
 # -----------------------------------------------------
-
-serviceAccount:
-  enabled: false
 
 podAnnotations: {}
 
@@ -83,11 +107,10 @@ nodeSelector:
   kubernetes.io/os: linux
 
 tolerations: []
-
 affinity: {}
 
 # -----------------------------------------------------
-# Resource Limits
+# Resources
 # -----------------------------------------------------
 
 resources:
@@ -99,15 +122,21 @@ resources:
     memory: 128Mi
 
 # -----------------------------------------------------
-# CronJob (Disabled)
+# Metrics (Required by schema)
+# -----------------------------------------------------
+
+metrics:
+  enabled: false
+  portName: "prometheus"
+  port: 3001
+  targetPort: 3001
+
+# -----------------------------------------------------
+# Other Options
 # -----------------------------------------------------
 
 cronJob:
   enabled: false
-
-# -----------------------------------------------------
-# Storage (Disabled for now)
-# -----------------------------------------------------
 
 volume:
   enabled: false
@@ -120,3 +149,11 @@ statefulSets:
 
 deploymentStrategy:
   type: Recreate
+
+# -----------------------------------------------------
+# Health checks (fixed)
+# -----------------------------------------------------
+
+healthCheckProbes:
+  enabled: false
+  probes: {}   # matches schema
