@@ -3,12 +3,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy only the package files first (for layer caching)
+COPY app/package*.json ./
 
-RUN npm install --only=production
+RUN npm install --omit=dev
 
-COPY app/ ./app
+# Copy the rest of the application
+COPY app/ .
 
+# Expose port
 EXPOSE 3000
 
-CMD ["node", "app/index.js"]
+CMD ["npm", "start"]
