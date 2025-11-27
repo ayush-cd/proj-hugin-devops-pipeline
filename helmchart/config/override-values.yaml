@@ -1,93 +1,96 @@
+# -----------------------------------------------------
+# Deployment Settings
+# -----------------------------------------------------
+
 replicaCount: 1
 
 image:
-  repository: nginx
+  # These values will be injected dynamically by the pipeline:
+  repository: ""         # Example: hugintestacr.azurecr.io/proj-hugin-backend
   pullPolicy: IfNotPresent
-  tag: "latest"
-  digest: "sha256:09369da6b10306312cd908661320086bf87fbae1b6b0c49a1f50ba531fef2eab"
-
-secret:
-  enabled: true
-  secrets:
-    SECRET_KEY: "secret"
-
-configmap:
-  enabled: true
-  configs:
-    CONFIG_KEY: "configmap"
-
-imagePullSecrets: [] 
+  tag: ""                # IMAGE_TAG from pipeline
+  digest: ""
 
 commands:
   - /bin/sh
   - -c
-  - echo "Hello, from CloudDrove!"; nginx -g 'daemon off;'
+  - echo "Hello from AKS CI/CD Pipeline 🚀"; nginx -g 'daemon off;'
 
-nameOverride: "" 
+# -----------------------------------------------------
+# Secrets from Azure Key Vault (CI/CD Injects Values)
+# -----------------------------------------------------
 
-fullnameOverride: "" 
+secret:
+  enabled: true
+  secrets:
+    DB_URL: ""
+    ACCESS_TOKEN_SECRET: ""
+    REFRESH_TOKEN_SECRET: ""
 
-pdbMinAvailable: 30% 
+# -----------------------------------------------------
+# ConfigMap (Optional Testing Config)
+# -----------------------------------------------------
+
+configmap:
+  enabled: true
+  configs:
+    APP_MODE: "development"
+    MESSAGE: "Hello from ConfigMap 👋"
+
+# -----------------------------------------------------
+# Networking
+# -----------------------------------------------------
+
+service:
+  enabled: true
+  type: LoadBalancer       # For Azure External IP Access
+  port: 80
+  containerPort: 80
+  targetPort: 80
+
+ingress:
+  enabled: false           # Disabled because AWS ALB config isn't compatible with AKS
+
+# -----------------------------------------------------
+# Autoscaling
+# -----------------------------------------------------
+
+autoscaling:
+  enabled: false           # Can enable later if metrics server installed
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+# -----------------------------------------------------
+# Pod Security / Scheduling
+# -----------------------------------------------------
 
 serviceAccount:
-  enabled: true  
-  annotations: {}       
-  name: ""
-  automountServiceAccountToken: false 
+  enabled: false
 
-podAnnotations: {} 
+podAnnotations: {}
 
 podSecurityContext:
   runAsUser: 0
   runAsGroup: 0
   fsGroup: 0
-  seccompProfile:
-    type: RuntimeDefault
 
 securityContext:
-  capabilities:
-    add: ["NET_ADMIN", "SYS_TIME"]
   readOnlyRootFilesystem: false
   allowPrivilegeEscalation: false
-  runAsGroup: 3000
-  fsGroup: 2000
 
-service: 
-  enabled: true
-  type: NodePort 
-  port: 80  
-  containerPort: 80
-  targetPort: http
+nodeSelector:
+  kubernetes.io/os: linux
 
-istio:
-  enabled: false
-  virtualService:
-    enabled: false
-    hosts: 
-      - test.example.com
-      - test-2.example.com
-  gateway:
-    names: 
-      - "istio-system/istio-gateway"
+tolerations: []
 
-ingress:    
-  enabled: true 
-  className: "alb"
-  annotations:
-    alb.ingress.kubernetes.io/group.name: ingress
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-  hosts:                        
-    - host: chart-example.local
-      paths:
-        - path: /*
-          pathType: ImplementationSpecific
-  tls: []
+affinity: {}
 
-resource:
-  enabled: true
-resources: 
+# -----------------------------------------------------
+# Resource Limits
+# -----------------------------------------------------
+
+resources:
   limits:
     cpu: 200m
     memory: 512Mi
@@ -95,84 +98,22 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-autoscaling:      
-  enabled: true 
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
+# -----------------------------------------------------
+# CronJob (Disabled)
+# -----------------------------------------------------
 
-poddisruptionbudget:
-  enabled: true
-  minAvailable: 30%
-
-nodeSelector:
-  kubernetes.io/os: linux
-
-tolerations:
-  - key: "clouddrove"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
-
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: "kubernetes.io/os"
-          operator: In
-          values:
-          - "linux" 
-
-cronJob: 
+cronJob:
   enabled: false
-  schedule: ""
-  startingDeadlineSeconds: 3600
-  concurrencyPolicy: Forbid
-  failedJobsHistoryLimit: 3
-  resources: {}
-  image:
-    repository: nginx
-    pullPolicy: IfNotPresent
-    tag: "1.16.0" 
-  secret:
-    enabled: false
-  configmap:
-    enabled: false
 
-metrics:
-  enabled: false   
-  portName: "prometheus" 
-  port: 3001     
-  targetPort: 3001 
-
+# -----------------------------------------------------
+# Storage (Disabled for now)
+# -----------------------------------------------------
 
 volume:
   enabled: false
-  mountPath: "/usr/share/nginx/html"
-  hostPath: "/var/www/html"
 
 storageClass:
   create: false
-  existingClaim: ""
-  # storageClassName: "mystorageclass"
-  
-  aws: false
-  fileSystemId: fs-abcd1234xyz
-  
-  azure: false
-  
-  gcp: false
-
-  provisioner: "k8s.io/minikube-hostpath"
-  allowVolumeExpansion: false
-  volumeBindingMode: Immediate
-
-  persistence:
-    enabled: false
-    accessMode: ReadWriteOnce
-    size: 512Mi
-    persistentVolumeReclaimPolicy: ""
 
 statefulSets:
   enabled: false
