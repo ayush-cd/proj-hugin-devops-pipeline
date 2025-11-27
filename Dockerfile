@@ -1,13 +1,14 @@
-# Dockerfile
-FROM nginx:alpine
+# Simple runtime application using Node.js
+FROM node:18-alpine
 
-# Remove default nginx index page
-RUN rm -rf /usr/share/nginx/html/*
+WORKDIR /app
 
-# Copy our test app
-COPY app/ /usr/share/nginx/html/
+COPY package*.json ./
 
-# Expose port
-EXPOSE 80
+RUN npm install --only=production
 
-CMD ["nginx", "-g", "daemon off;"]
+COPY app/ ./app
+
+EXPOSE 3000
+
+CMD ["node", "app/index.js"]

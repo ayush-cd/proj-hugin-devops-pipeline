@@ -1,119 +1,94 @@
-# -----------------------------------------------------
-# Deployment Settings
-# -----------------------------------------------------
-
 replicaCount: 1
 
 image:
-  repository: ""   # Populated by pipeline
+  repository: nginx
   pullPolicy: IfNotPresent
-  tag: ""          # Populated by pipeline
-  digest: ""
-
-imagePullSecrets: []   # REQUIRED by schema
-
-commands:
-  - /bin/sh
-  - -c
-  - echo "Hello from AKS CI/CD Pipeline 🚀"; nginx -g 'daemon off;'
-
-# -----------------------------------------------------
-# Secrets injected from Azure Key Vault (Pipeline)
-# -----------------------------------------------------
+  tag: "latest"
+  # digest: ""
 
 secret:
   enabled: true
   secrets:
-    DB_URL: ""
-    ACCESS_TOKEN_SECRET: ""
+    # SECRET_KEY: "secret"
     REFRESH_TOKEN_SECRET: ""
-
-# -----------------------------------------------------
-# ConfigMap
-# -----------------------------------------------------
 
 configmap:
   enabled: true
   configs:
-    APP_MODE: "development"
-    MESSAGE: "Hello from ConfigMap 👋"
+    CONFIG_KEY: "configmap"
 
-# -----------------------------------------------------
-# Required Schema Keys
-# -----------------------------------------------------
+imagePullSecrets: [] 
 
-nameOverride: ""
-fullnameOverride: ""
+# commands:
+#   - /bin/sh
+#   - -c
+#   - echo "Hello, from CloudDrove!"; nginx -g 'daemon off;'
 
-pdbMinAvailable: ""   # REQUIRED field
+nameOverride: "" 
 
-poddisruptionbudget:
-  enabled: false
-  minAvailable: 1
+fullnameOverride: "" 
+
+pdbMinAvailable: 30% 
 
 serviceAccount:
-  enabled: false
-  annotations: {}    # REQUIRED field
-  name: ""           # REQUIRED field
+  enabled: true  
+  annotations: {}       
+  name: ""
+  automountServiceAccountToken: false 
 
-# -----------------------------------------------------
-# Networking
-# -----------------------------------------------------
+podAnnotations: {} 
 
-service:
+# podSecurityContext:
+#   runAsUser: 0
+#   runAsGroup: 0
+#   fsGroup: 0
+#   seccompProfile:
+#     type: RuntimeDefault
+
+# securityContext:
+#   capabilities:
+#     add: ["NET_ADMIN", "SYS_TIME"]
+#   readOnlyRootFilesystem: false
+#   allowPrivilegeEscalation: false
+#   runAsGroup: 3000
+#   fsGroup: 2000
+
+service: 
   enabled: true
-  type: LoadBalancer
-  port: 80
+  type: NodePort 
+  port: 80  
   containerPort: 80
-  targetPort: 80
+  targetPort: http
 
-ingress:
-  enabled: false
-  className: ""       # REQUIRED by schema
-  annotations: {}     # REQUIRED by schema
-  hosts:
-    - host: "placeholder.local"   # REQUIRED field even if disabled
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []             # REQUIRED field
+# istio:
+#   enabled: false
+#   virtualService:
+#     enabled: false
+#     hosts: 
+#       - test.example.com
+#       - test-2.example.com
+#   gateway:
+#     names: 
+#       - "istio-system/istio-gateway"
 
-# -----------------------------------------------------
-# Autoscaling
-# -----------------------------------------------------
+# ingress:    
+#   enabled: true 
+#   className: "alb"
+#   annotations:
+#     alb.ingress.kubernetes.io/group.name: ingress
+#     alb.ingress.kubernetes.io/target-type: ip
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+#   hosts:                        
+#     - host: chart-example.local
+#       paths:
+#         - path: /*
+#           pathType: ImplementationSpecific
+#   tls: []
 
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-
-# -----------------------------------------------------
-# Pod / Security
-# -----------------------------------------------------
-
-podAnnotations: {}
-
-podSecurityContext:
-  runAsUser: 0
-  runAsGroup: 0
-  fsGroup: 0
-
-securityContext:
-  readOnlyRootFilesystem: false
-  allowPrivilegeEscalation: false
-
-nodeSelector:
-  kubernetes.io/os: linux
-
-tolerations: []
-affinity: {}
-
-# -----------------------------------------------------
-# Resources
-# -----------------------------------------------------
-
-resources:
+resource:
+  enabled: true
+resources: 
   limits:
     cpu: 200m
     memory: 512Mi
@@ -121,55 +96,87 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-# -----------------------------------------------------
-# Metrics (Required by schema)
-# -----------------------------------------------------
+# autoscaling:      
+#   enabled: true 
+#   minReplicas: 1
+#   maxReplicas: 100
+#   targetCPUUtilizationPercentage: 80
 
-metrics:
-  enabled: false
-  portName: "prometheus"
-  port: 3001
-  targetPort: 3001
+# poddisruptionbudget:
+#   enabled: true
+#   minAvailable: 30%
 
-# -----------------------------------------------------
-# Other Options
-# -----------------------------------------------------
+nodeSelector:
+  kubernetes.io/os: linux
 
-cronJob:
-  enabled: false
+# tolerations:
+#   - key: "clouddrove"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
 
-volume:
-  enabled: false
+# affinity:
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#       - matchExpressions:
+#         - key: "kubernetes.io/os"
+#           operator: In
+#           values:
+#           - "linux" 
 
-storageClass:
-  create: false
+# cronJob: 
+#   enabled: false
+#   schedule: ""
+#   startingDeadlineSeconds: 3600
+#   concurrencyPolicy: Forbid
+#   failedJobsHistoryLimit: 3
+#   resources: {}
+#   image:
+#     repository: nginx
+#     pullPolicy: IfNotPresent
+#     tag: "1.16.0" 
+#   secret:
+#     enabled: false
+#   configmap:
+#     enabled: false
 
-statefulSets:
-  enabled: false
+# metrics:
+#   enabled: false   
+#   portName: "prometheus" 
+#   port: 3001     
+#   targetPort: 3001 
+
+
+# volume:
+#   enabled: false
+#   mountPath: "/usr/share/nginx/html"
+#   hostPath: "/var/www/html"
+
+# storageClass:
+#   create: false
+#   existingClaim: ""
+#   # storageClassName: "mystorageclass"
+  
+  # aws: false
+  # fileSystemId: fs-abcd1234xyz
+  
+#   azure: false
+  
+#   gcp: false
+
+#   provisioner: "k8s.io/minikube-hostpath"
+#   allowVolumeExpansion: false
+#   volumeBindingMode: Immediate
+
+#   persistence:
+#     enabled: false
+#     accessMode: ReadWriteOnce
+#     size: 512Mi
+#     persistentVolumeReclaimPolicy: ""
+
+# statefulSets:
+#   enabled: false
 
 deploymentStrategy:
   type: Recreate
-
-# -----------------------------------------------------
-# Istio (Required fields because chart references them)
-# -----------------------------------------------------
-
-istio:
-  enabled: false
-  virtualService:
-    enabled: false
-    hosts: []
-  gateway:
-    enabled: false
-    namespace: "istio-system"
-    names:
-      - "istio-system/istio-gateway"
-    selector: "ingress"
-
-# -----------------------------------------------------
-# Health checks (fixed)
-# -----------------------------------------------------
-
-healthCheckProbes:
-  enabled: false
-  probes: {}   # matches schema
