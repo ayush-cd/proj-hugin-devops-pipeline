@@ -1,8 +1,8 @@
 {
-  "name": "helm-secret-test",
+  "name": "proj-hugin-api",
   "version": "1.0.0",
-  "main": "app/index.js",
-  "dependencies": {
-    "express": "4.18.2"
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
   }
 }
