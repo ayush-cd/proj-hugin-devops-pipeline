@@ -10,6 +10,6 @@ RUN npm install --omit=dev
 # Copy rest of app
 COPY app/ .
 
-EXPOSE 3000
+EXPOSE 80
 
 CMD ["npm", "start"]
