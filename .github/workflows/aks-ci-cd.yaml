@@ -80,15 +80,23 @@ jobs:
         run: |
           docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
 
-      # Load secrets from Azure Key Vault
-      - name: Load Secrets from Azure Key Vault
-        uses: azure/cli@v2
+      # # Load secrets from Azure Key Vault
+      # - name: Load Secrets from Azure Key Vault
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       for secret in DB-URL ACCESS-TOKEN-SECRET REFRESH-TOKEN-SECRET; do
+      #         VALUE=$(az keyvault secret show --vault-name ${{ env.KEY_VAULT_NAME }} --name $secret --query value -o tsv)
+      #         echo "${secret//-/_}=$VALUE" >> $GITHUB_ENV
+      #       done
+
+      - name: Get secrets from Key Vault
+        uses: Azure/get-keyvault-secrets@v1
+        id: kv
         with:
-          inlineScript: |
-            for secret in DB-URL ACCESS-TOKEN-SECRET REFRESH-TOKEN-SECRET; do
-              VALUE=$(az keyvault secret show --vault-name ${{ env.KEY_VAULT_NAME }} --name $secret --query value -o tsv)
-              echo "${secret//-/_}=$VALUE" >> $GITHUB_ENV
-            done
+          keyvault: ${{ env.KEY_VAULT_NAME }}
+          secrets: "DB-URL,ACCESS-TOKEN-SECRET,REFRESH-TOKEN-SECRET"
+
 
       # Install kubectl command-line tool for Kubernetes
       - name: Install kubectl
