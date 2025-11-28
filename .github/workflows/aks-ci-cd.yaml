@@ -96,6 +96,12 @@ jobs:
         with:
           keyvault: ${{ env.KEY_VAULT_NAME }}
           secrets: "DB-URL,ACCESS-TOKEN-SECRET,REFRESH-TOKEN-SECRET"
+      - name: Export Key Vault Secrets to Environment
+        run: |
+          echo "DB_URL=${{ steps.kv.outputs.DB-URL }}" >> $GITHUB_ENV
+          echo "ACCESS_TOKEN_SECRET=${{ steps.kv.outputs.ACCESS-TOKEN-SECRET }}" >> $GITHUB_ENV
+          echo "REFRESH_TOKEN_SECRET=${{ steps.kv.outputs.REFRESH-TOKEN-SECRET }}" >> $GITHUB_ENV
+
 
 
       # Install kubectl command-line tool for Kubernetes
