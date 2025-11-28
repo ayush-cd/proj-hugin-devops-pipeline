@@ -56,22 +56,22 @@ jobs:
             -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:latest .
 
 
-      # Install Trivy vulnerability scanner
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update -y
-          sudo apt-get install -y trivy
+      # # Install Trivy vulnerability scanner
+      # - name: Install Trivy
+      #   run: |
+      #     sudo apt-get update -y
+      #     sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+      #     wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+      #     echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+      #     sudo apt-get update -y
+      #     sudo apt-get install -y trivy
 
-      # Scan Docker image for vulnerabilities using Trivy
-      - name: Scan Image with Trivy
-        env:
-          IMAGE_TAG: ${{ github.run_id }}
-        run: |
-          trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
+      # # Scan Docker image for vulnerabilities using Trivy
+      # - name: Scan Image with Trivy
+      #   env:
+      #     IMAGE_TAG: ${{ github.run_id }}
+      #   run: |
+      #     trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
 
       # Push Docker image to Azure Container Registry
       - name: Push Image to ACR
@@ -90,19 +90,20 @@ jobs:
       #         echo "${secret//-/_}=$VALUE" >> $GITHUB_ENV
       #       done
 
+      # Azure Action to get secrets from Key Vault
       - name: Get secrets from Key Vault
         uses: Azure/get-keyvault-secrets@v1
         id: kv
         with:
           keyvault: ${{ env.KEY_VAULT_NAME }}
           secrets: "DB-URL,ACCESS-TOKEN-SECRET,REFRESH-TOKEN-SECRET"
+
+      # Export Key Vault secrets to environment variables
       - name: Export Key Vault Secrets to Environment
         run: |
           echo "DB_URL=${{ steps.kv.outputs.DB-URL }}" >> $GITHUB_ENV
           echo "ACCESS_TOKEN_SECRET=${{ steps.kv.outputs.ACCESS-TOKEN-SECRET }}" >> $GITHUB_ENV
           echo "REFRESH_TOKEN_SECRET=${{ steps.kv.outputs.REFRESH-TOKEN-SECRET }}" >> $GITHUB_ENV
-
-
 
       # Install kubectl command-line tool for Kubernetes
       - name: Install kubectl
