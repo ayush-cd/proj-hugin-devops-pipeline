@@ -8,6 +8,8 @@ app.get("/", (req, res) => {
     <h2>🎉 Hugin Test App Running Successfully!</h2>
     <p>Secret loaded at runtime:</p>
     <pre>${process.env.REFRESH_TOKEN_SECRET || "❌ No secret found"}</pre>
+    <pre>${process.env.ACCESS_TOKEN_SECRET || "❌ No secret found"}</pre>
+    <pre>${process.env.DB_URL || "❌ No secret found"}</pre>
   `);
 });
 
