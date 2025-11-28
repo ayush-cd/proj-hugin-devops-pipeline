@@ -13,6 +13,8 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: dev  
 
     env:
       ACR_LOGIN_SERVER: hugintestacr.azurecr.io
