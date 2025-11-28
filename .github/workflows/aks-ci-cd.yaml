@@ -91,7 +91,7 @@ jobs:
       #       done
 
       - name: Get secrets from Key Vault
-        uses: Azure/get-keyvault-secrets@v2
+        uses: Azure/get-keyvault-secrets@v1
         id: kv
         with:
           keyvault: ${{ env.KEY_VAULT_NAME }}
