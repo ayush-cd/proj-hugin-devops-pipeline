@@ -51,8 +51,10 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.run_id }}
         run: |
-          docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG} \ 
-                       -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:latest .
+          docker build \
+            -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG} \
+            -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:latest .
+
 
       # Install Trivy vulnerability scanner
       - name: Install Trivy
