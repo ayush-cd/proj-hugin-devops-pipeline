@@ -14,7 +14,7 @@ jobs:
   build-deploy:
     runs-on: ubuntu-latest
     environment:
-      name: dev  
+      name: dev  # 🔥 approval required here
 
     env:
       ACR_LOGIN_SERVER: hugintestacr.azurecr.io
@@ -37,19 +37,26 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR using Azure identity
+      - name: Login to ACR
         run: |
           az acr login --name $ACR_NAME
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker Image
-        env:
-          IMAGE_TAG: ${{ github.run_id }}
+      # 🔥 Auto Increment Build Version
+      - name: Increment Version
+        id: version
         run: |
-          docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG} .
+          VERSION=${{ vars.BUILD_VERSION }}
+          NEW_VERSION=$((VERSION + 1))
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
+      # 🔥 Build image with 2 tags: <number>, latest
+      - name: Build Docker Image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$VERSION \
+                       -t $ACR_LOGIN_SERVER/$ACR_REPOSITORY:latest .
+
+      # 🔥 Optional security scan (keep)
       - name: Install Trivy
         run: |
           sudo apt-get update -y
@@ -60,17 +67,16 @@ jobs:
           sudo apt-get install -y trivy
 
       - name: Scan Image with Trivy
-        env:
-          IMAGE_TAG: ${{ github.run_id }}
         run: |
-          trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
+          trivy image --exit-code 0 --severity HIGH,CRITICAL $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$VERSION
 
-      - name: Push Image to ACR
-        env:
-          IMAGE_TAG: ${{ github.run_id }}
+      # 🔥 Push only required tags
+      - name: Push Docker Images
         run: |
-          docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:${IMAGE_TAG}
+          docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:$VERSION
+          docker push $ACR_LOGIN_SERVER/$ACR_REPOSITORY:latest
 
+      # 🔥 Load Key Vault secrets as env variables
       - name: Load Secrets from Azure Key Vault
         uses: azure/cli@v2
         with:
@@ -92,17 +98,24 @@ jobs:
           resource-group: ${{ env.AKS_RG }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
+      # 🔥 Deploy with version tag
       - name: Deploy Helm Chart to AKS
-        env:
-          IMAGE_TAG: ${{ github.run_id }}
         run: |
           helm upgrade --install $HELM_RELEASE_NAME $HELM_CHART_PATH \
             -n $HELM_NAMESPACE \
             -f $HELM_VALUES_FILE \
-            --create-namespace \
-            --rollback-on-failure --wait --timeout 5m \
+            --atomic \
+            --wait --timeout 5m \
             --set image.repository=$ACR_LOGIN_SERVER/$ACR_REPOSITORY \
-            --set image.tag=$IMAGE_TAG \
+            --set image.tag=$VERSION \
             --set secret.secrets.DB_URL="$DB_URL" \
             --set secret.secrets.ACCESS_TOKEN_SECRET="$ACCESS_TOKEN_SECRET" \
             --set secret.secrets.REFRESH_TOKEN_SECRET="$REFRESH_TOKEN_SECRET"
+
+      # 🔥 Save updated version number for next run
+      - name: Update Build Version
+        if: success()
+        run: |
+          gh variable set BUILD_VERSION --body "$NEW_VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
