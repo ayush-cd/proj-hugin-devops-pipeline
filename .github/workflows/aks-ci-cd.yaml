@@ -112,10 +112,10 @@ jobs:
             --set secret.secrets.ACCESS_TOKEN_SECRET="$ACCESS_TOKEN_SECRET" \
             --set secret.secrets.REFRESH_TOKEN_SECRET="$REFRESH_TOKEN_SECRET"
 
-      # 🔥 Save updated version number for next run
-      - name: Update Build Version
-        if: success()
-        run: |
-          gh variable set BUILD_VERSION --body "$NEW_VERSION"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # # 🔥 Save updated version number for next run
+      # - name: Update Build Version
+      #   if: success()
+      #   run: |
+      #     gh variable set BUILD_VERSION --body "$NEW_VERSION"
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
